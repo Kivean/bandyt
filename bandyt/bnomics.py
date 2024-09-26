@@ -25,6 +25,8 @@ import time
 from functools import reduce
 
 
+__all__ = ['search']
+
 class search:
     """ Methods for BN structure learning """
 
