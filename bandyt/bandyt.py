@@ -18,7 +18,7 @@ import multiprocessing as mp
 from functools import reduce
 
 
-__all__ = ['search', 'bnet', 'cext', 'dataset', 'bdn', 'bnetload', 'check_type', 'cond_normal', 'conditional_sampl', 'continuous_sampler','conv','conv_col','conv_row','cpt',
+__all__ = ['search', 'bnet', 'cext', 'dataset', 'bdm', 'bnetload', 'check_type', 'cond_normal', 'conditional_sampl', 'continuous_sampler','conv','conv_col','conv_row','cpt',
            'downstream_sampler', 'downstream_sampler1', 'factor_indx', 'factor_str', 'joint_prob', 'loader', 'make_A', 'mdl', 'mu', 'random_adjmat', 'random_dist',
            'test','upstream_sampler', ]
 
