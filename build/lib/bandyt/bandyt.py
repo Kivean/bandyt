@@ -9,7 +9,6 @@ import random
 import csv
 import os
 import time
-import oflib
 from itertools import product
 import matplotlib.pyplot as plt
 import itertools as itools
@@ -17,7 +16,6 @@ import textwrap as tw
 from ofunc import bdm, mdl, cpt, mu
 from copy import deepcopy
 import multiprocessing as mp
-import time
 from functools import reduce
 
 
