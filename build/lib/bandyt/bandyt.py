@@ -13,7 +13,6 @@ from itertools import product
 import matplotlib.pyplot as plt
 import itertools as itools
 import textwrap as tw
-from ofunc import bdm, mdl, cpt, mu
 from copy import deepcopy
 import multiprocessing as mp
 from functools import reduce

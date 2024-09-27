@@ -1136,13 +1136,12 @@ def test(arity=np.array([3]*8), samples=10000, alpha=0):
     plt.triplot(b[0,:],b[1,:])
     plt.scatter(zz[0,:],zz[1,:],s=.1)
     
-try: 
-    import oflib
-    cmdl=oflib.cext().mdl
-    cmu=oflib.cext().mu
-except OSError: 
+#try:
+#    cmdl=oflib.cext().mdl
+#    cmu=oflib.cext().mu
+#except OSError: 
     #print("Try running make")
-    pass
+    #pass
 
 class search:
     """ Methods for BN structure learning """
