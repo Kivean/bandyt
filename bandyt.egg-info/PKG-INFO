@@ -1,9 +1,9 @@
 Metadata-Version: 2.1
 Name: bandyt
-Version: 0.3
+Version: 0.4
 Summary: A brief description of your module
 Home-page: https://github.com/bandyt-group/bandyt
-Author: Elizaveta Mukhaleva, Babgen Manookian, Grigoriy Gogoshin, Nagarajan Vaidehi, Andrei Rodin, Sergion Branciamore
+Author: Elizaveta Mukhaleva, Babgen Manookian, Grigoriy Gogoshin, Nagarajan Vaidehi, Andrei Rodin, Sergio Branciamore
 Author-email: bandyt-group@gmail.com
 License: MIT
 Classifier: Programming Language :: Python :: 3
