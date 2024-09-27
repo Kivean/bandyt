@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='bandyt',                   # Your module's name
-    version='0.3',                      # Initial release version
+    version='0.4',                      # Initial release version
     packages=['bandyt'],           # Automatically find packages in your project
     install_requires=[                  # Dependencies
         'numpy',
@@ -16,7 +16,7 @@ setup(
     long_description=open('README.md').read(),  # Optional: Content of your README file
     long_description_content_type='text/markdown',  # Optional: README file type
     url='https://github.com/bandyt-group/bandyt',  # URL to your GitHub repository
-    author='Elizaveta Mukhaleva, Babgen Manookian, Grigoriy Gogoshin, Nagarajan Vaidehi, Andrei Rodin, Sergion Branciamore',
+    author='Elizaveta Mukhaleva, Babgen Manookian, Grigoriy Gogoshin, Nagarajan Vaidehi, Andrei Rodin, Sergio Branciamore',
     author_email='bandyt-group@gmail.com',
     license='MIT',                      # License type
     classifiers=[                       # Optional metadata
