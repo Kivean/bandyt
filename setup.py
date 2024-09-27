@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='bandyt',                   # Your module's name
-    version='0.5',                      # Initial release version
+    version='0.6',                      # Initial release version
     packages=['bandyt'],           # Automatically find packages in your project
     install_requires=[                  # Dependencies
         'numpy',
