@@ -3,9 +3,6 @@ README.md
 setup.py
 bandyt/__init__.py
 bandyt/bandyt.py
-bandyt/bnomics.py
-bandyt/bnutils.py
-bandyt/dutils.py
 bandyt/oflib.py
 bandyt/ofunc.py
 bandyt/synthetic.py

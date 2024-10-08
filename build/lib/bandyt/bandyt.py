@@ -16,11 +16,16 @@ import textwrap as tw
 from copy import deepcopy
 import multiprocessing as mp
 from functools import reduce
-
+from functools import partial
+import multiprocessings
+import pandas as pd
+import pydot
 
 __all__ = ['search', 'bnet', 'cext', 'dataset', 'bdm', 'bnetload', 'check_type', 'cond_normal', 'conditional_sampl', 'continuous_sampler','conv','conv_col','conv_row','cpt',
            'downstream_sampler', 'downstream_sampler1', 'factor_indx', 'factor_str', 'joint_prob', 'loader', 'make_A', 'mdl', 'mu', 'random_adjmat', 'random_dist',
-           'test','upstream_sampler', ]
+           'test','upstream_sampler', 'read_input_file','getContact2discret', 'runParallel', 'datawrite', 'read_tsv', 'Residue', 
+           'transformRes', 'get_unique_pair', 'get_trj_s', 'get_traj_p', 'remove_Neighbors',  'getGraphProp', 'load_graph',
+           'is_valid_node', 'create_adjacency_matrix', 'calculate_hamming_distance_between_graphs', 'calculate_hamming_distances_per_node']
 
 def bnetload(structure):
     """ structure can be a csv file or and adjacency matrix """
@@ -496,6 +501,122 @@ class bnet:
         for i,name in enumerate(self.node_names):
             csvwr.writerow([name]+self.pnodes[i])
         fout.close()
+
+def runParallel(foo,iter,ncore):
+    pool=multiprocessing.Pool(processes=ncore)
+    try:
+        out=(pool.map_async( foo,iter )).get()  
+    except KeyboardInterrupt:
+        print ("Caught KeyboardInterrupt, terminating workers")
+        pool.terminate()
+        pool.join()
+    else:
+        #print ("Quitting normally core used ",ncore)
+        pool.close()
+        pool.join()
+    try:
+        return out
+    except Exception:
+        return out
+
+def datawrite(output,data,labels=None):
+    with open(output, 'w', newline='') as csvfile:
+        csv_writer = csv.writer(csvfile)
+        if labels is not None:
+            csv_writer.writerow(labels)
+        for row in data:
+            csv_writer.writerow(row)
+
+def read_tsv(fin):
+    f=open(fin)
+    f.readline()
+    h=f.readline().strip().split('\t')
+    data=np.array([r.strip().split('\t') for r in f.readlines()])
+    return h,data 
+
+class Residue():
+    def __init__(self):
+        self.d={'CYS': 'C', 'CYX': 'C', 'ASP': 'D', 'ASH': 'D', 'SER': 'S', 
+                'GLN': 'Q', 'LYS': 'K', 'ILE': 'I', 'PRO': 'P', 'THR': 'T', 
+                'PHE': 'F', 'ASN': 'N', 'GLY': 'G', 'HIS': 'H', 'HSD': 'H',
+                'HID': 'H', 'HIE': 'H', 'HIP': 'H', 'LEU': 'L', 'ARG': 'R', 
+                'TRP': 'W', 'ALA': 'A', 'VAL': 'V', 'GLU': 'E', 'GLH': 'E', 
+                'TYR': 'Y', 'MET': 'M', 'ZD7': 'Z', 'NMA': 'X' }
+
+    def shRes(self,x):
+        #print(self.d.keys())
+        if len(x) % 3 != 0: 
+            raise ValueError('Input length should be a multiple of three')
+        y = ''
+        for i in range(len(x) // 3):
+            y += self.d[x[3 * i : 3 * i + 3]]
+        return y
+
+
+def transformRes(pair):
+    R=Residue()
+    res1=R.shRes(pair.split('_')[0][:3])+pair.split('_')[0][3:]
+    res2=R.shRes(pair.split('_')[1][:3])+pair.split('_')[1][3:]
+    return res1+'_'+res2
+
+def get_unique_pair(data):
+    P=np.array([a.split(':')[1:3][0]+a.split(':')[1:3][1][:]+'_'+b.split(':')[1:3][0]+b.split(':')[1:3][1][:] for a,b in data[:,2:]])
+    Pt=np.array([transformRes(p) for p in P])
+    u,pair_indx=np.unique(Pt,return_inverse=True)
+    return Pt,u,pair_indx
+
+def get_trj_s(pair_indx,T,ui):
+    tmax=T[-1]
+    traj=np.zeros(tmax+1)
+    traj[np.unique(T[pair_indx==ui])]=1
+    return traj
+
+def get_traj_p(T,pair_indx,nproc): #u also
+    tmax=T[-1]
+    u=np.unique(pair_indx)
+    traj=np.zeros((tmax+1,u.size))
+    make_v=partial(get_trj_s,pair_indx,T)
+    trj=runParallel(make_v,u,nproc)
+    return trj
+
+def remove_Neighbors(contacts,N):
+    iplus=np.array([i for i,p in enumerate(contacts) if int(p.split('_')[0][1:])+N != int(p.split('_')[1][1:])])
+    imin=np.array([i for i,p in enumerate(contacts) if int(p.split('_')[0][1:])-N != int(p.split('_')[1][1:])])
+    return np.intersect1d(iplus,imin)
+
+
+#Main Function below
+
+def getContact2discret(tsvfile='input.tsv',neighbors=1,csv_out='trajectory.csv',nproc=28):
+    
+    # Bulk of this function is this step which is reading tsv and converting to contact matrix
+    h,tsv_data=read_tsv(tsvfile)
+    pair,unqpair,pair_indx=get_unique_pair(tsv_data)
+    T=tsv_data[:,0].astype(int)
+    traj=np.array(get_traj_p(T,pair_indx,nproc))
+
+    # Remove neighbors (default is 1)
+    I=remove_Neighbors(unqpair,neighbors)
+    variables=unqpair[I]
+    data=traj[I].T.astype(int)
+   
+    # If csv file given then save to csv file (Default is to save to trajectory.csv, Set csv_out to None to skip) 
+    if csv_out is not None:
+        datawrite(csv_out,data,labels=variables)
+        return np.vstack((variables,data)) 
+    
+    # Return dataset with first row as variable names then trajectory data with shape (frames,variables)
+    return np.vstack((variables,data))
+
+def read_input_file(f):
+    if f[-3:]=='tsv':
+        discreteData=getContact2discret(f)
+        dt=bnomics.dutils.loader(discreteData)
+    else:
+        dt=bnomics.dutils.loader(filename)
+        if np.any(np.array([np.unique(x).size/len(x) for  x in dt.data.T])>0.95):
+            dt.quantize_all()
+    return dt
 
 def loader(data,sep=',',skip_header=0, rowskip=[], colskip=[], axis=1, names=1, fromstring=0):
     """ Loads a data and returns a dataset instance.
@@ -1143,6 +1264,23 @@ def test(arity=np.array([3]*8), samples=10000, alpha=0):
     #print("Try running make")
     #pass
 
+def getGraphProp(filename, fileout):
+    g = pd.read_pickle(filename)
+    name=g.vs["label"]
+    weighted_degree=g.strength(weights=g.es["weight"])
+    degree=g.degree()
+    percentiles = np.percentile(weighted_degree, np.arange(0, 101, 1))  # Get percentiles from 0 to 100
+    percentile_ranks = np.digitize(weighted_degree, percentiles, right=True)
+    graph_properties=['Degree', 'Weighted Degree', 'WD Percentile Rank']
+    graph_properties_values = [degree,weighted_degree,percentile_ranks]
+    for prop_name, prop_values in zip(graph_properties, graph_properties_values):
+        g.vs[prop_name] = prop_values
+    g.write_graphml(f'{fileout}.graphml')
+    file=open(f'{fileout}.csv', 'w')
+    file.write("Node name,Degree,Weighted Degree,WD Percentile Rank\n")
+    [print("%s,%f,%f,%f"%(a,x,y,z), file=file) for a,x,y,z in zip(name,degree,weighted_degree,percentile_ranks )] 
+    file.close()
+    
 class search:
     """ Methods for BN structure learning """
 
@@ -1349,11 +1487,11 @@ class search:
         for i in self.BN.p_candidates(node):
             for j in self.BN.p_candidates(node):
                 if j>i:
-                    subset=[node]+np.sort([i,j]+ancestors).tolist()
+                   subset=[node]+np.sort([i,j]+ancestors).tolist()
                     new_score=self.objfunc(self.data[:,subset],self.arity[subset])
                     delta=new_score-score
-                    if delta>tmp:
-                        tmp=delta*0.5
+                    f delta>tmp:
+                       tmp=delta*0.5
                         pair=[i,j]
             
         return pair,tmp
@@ -1799,3 +1937,73 @@ class search:
 
         if bool(return_scores): 
             return np.hstack([edge_scores.reshape((edge_scores.size,1)).astype(object),edges])
+
+def load_graph(dot_file_path):
+    """Load a graph from a DOT file."""
+    graphs = pydot.graph_from_dot_file(dot_file_path)
+    return graphs[0]
+
+def is_valid_node(node_name):
+    """Check if a node name is valid and not a reserved word or empty."""
+    excluded_nodes = {'edge', 'node', '\\n', ''}
+    node_name = node_name.strip('"').strip()
+    return node_name not in excluded_nodes and not node_name.isspace()
+
+def create_adjacency_matrix(graph, nodes):
+    """Create an adjacency matrix for a given graph and list of nodes."""
+    matrix_size = len(nodes)
+    adjacency_matrix = np.zeros((matrix_size, matrix_size), dtype=float)
+    node_to_index = {node: idx for idx, node in enumerate(nodes)}
+
+    for edge in graph.get_edges():
+        source = edge.get_source().strip('"')
+        target = edge.get_destination().strip('"')
+        weight = edge.get_attributes().get('label', '1').strip('"')
+        try:
+            weight = float(weight)
+        except ValueError:
+            weight = 1.0
+        if source in nodes and target in nodes:
+            adjacency_matrix[node_to_index[source], node_to_index[target]] = weight
+
+    return adjacency_matrix
+
+def calculate_hamming_distance_between_graphs(dot_file_path_1, dot_file_path_2):
+    """Calculate the Hamming distance between two matrices for each node."""
+    graph1=load_graph(dot_file_path_1)
+    graph2=load_graph(dot_file_path_2)
+    nodes = {node.get_name().strip().strip('"') for node in graph1.get_nodes() if is_valid_node(node.get_name().strip().strip('"'))}
+    nodes.update({node.get_name().strip().strip('"') for node in graph2.get_nodes() if is_valid_node(node.get_name().strip().strip('"'))})
+    matrix1=create_adjacency_matrix(graph1, nodes)
+    matrix2=create_adjacency_matrix(graph2, nodes)    
+    node_to_index = {node: idx for idx, node in enumerate(nodes)}
+    hamming_distances = 0
+
+    for node in nodes:
+        node_index = node_to_index[node]
+        distance = np.sum(np.abs(matrix1[node_index, :] - matrix2[node_index, :]))
+        hamming_distances += distance
+
+    return hamming_distances
+    
+def calculate_hamming_distances_per_node(dot_file_path_1, dot_file_path_2, output_filename):
+    """Calculate the Hamming distance for each node between two matrices."""
+    graph1 = load_graph(dot_file_path_1)
+    graph2 = load_graph(dot_file_path_2)
+    nodes = {node.get_name().strip().strip('"') for node in graph1.get_nodes() if is_valid_node(node.get_name().strip().strip('"'))}
+    nodes.update({node.get_name().strip().strip('"') for node in graph2.get_nodes() if is_valid_node(node.get_name().strip().strip('"'))})
+    
+    matrix1 = create_adjacency_matrix(graph1, nodes)
+    matrix2 = create_adjacency_matrix(graph2, nodes)
+    node_to_index = {node: idx for idx, node in enumerate(nodes)}
+    hamming_distances = {}
+
+    for node in nodes:
+        node_index = node_to_index[node]
+        distance = np.sum(np.abs(matrix1[node_index, :] - matrix2[node_index, :]))
+        hamming_distances[node] = distance
+        
+    df = pd.DataFrame(list(hamming_distances.items()), columns=['Node', 'Hamming Distance'])
+    df.to_csv(output_filename, index=False)
+    
+    return hamming_distances
