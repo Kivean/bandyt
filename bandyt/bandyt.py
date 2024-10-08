@@ -17,7 +17,7 @@ from copy import deepcopy
 import multiprocessing as mp
 from functools import reduce
 from functools import partial
-import multiprocessings
+import multiprocessing
 import pandas as pd
 import pydot
 
