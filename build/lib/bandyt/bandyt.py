@@ -17,7 +17,7 @@ from copy import deepcopy
 import multiprocessing as mp
 from functools import reduce
 from functools import partial
-import multiprocessing
+import multiprocessings
 import pandas as pd
 import pydot
 
@@ -612,11 +612,11 @@ def getContact2discret(tsvfile='input.tsv',neighbors=1,csv_out='trajectory.csv',
 def read_input_file(f):
     if f[-3:]=='tsv':
         discreteData=getContact2discret(f)
-        dt=bnomics.dutils.loader(discreteData)
+        dt=loader(discreteData)
     else:
-        dt=bnomics.dutils.loader(filename)
+        dt=loader(filename)
         if np.any(np.array([np.unique(x).size/len(x) for  x in dt.data.T])>0.95):
-            dt.quantize_all()
+            dt.quantize_all(bins=8)
     return dt
 
 def loader(data,sep=',',skip_header=0, rowskip=[], colskip=[], axis=1, names=1, fromstring=0):
