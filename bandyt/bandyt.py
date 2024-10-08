@@ -1491,8 +1491,8 @@ class search:
                     subset=[node]+np.sort([i,j]+ancestors).tolist()
                     new_score=self.objfunc(self.data[:,subset],self.arity[subset])
                     delta=new_score-score
-                    f delta>tmp:
-                       tmp=delta*0.5
+                    if delta>tmp:
+                        tmp=delta*0.5
                         pair=[i,j]
             
         return pair,tmp

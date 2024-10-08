@@ -25,7 +25,8 @@ __all__ = ['search', 'bnet', 'cext', 'dataset', 'bdm', 'bnetload', 'check_type',
            'downstream_sampler', 'downstream_sampler1', 'factor_indx', 'factor_str', 'joint_prob', 'loader', 'make_A', 'mdl', 'mu', 'random_adjmat', 'random_dist',
            'test','upstream_sampler', 'read_input_file','getContact2discret', 'runParallel', 'datawrite', 'read_tsv', 'Residue', 
            'transformRes', 'get_unique_pair', 'get_trj_s', 'get_traj_p', 'remove_Neighbors',  'getGraphProp', 'load_graph',
-           'is_valid_node', 'create_adjacency_matrix', 'calculate_hamming_distance_between_graphs', 'calculate_hamming_distances_per_node']
+           'is_valid_node', 'create_adjacency_matrix', 'calculate_hamming_distance_between_graphs', 'calculate_hamming_distances_per_node',
+           'convert_bn_to_igraph']
 
 def bnetload(structure):
     """ structure can be a csv file or and adjacency matrix """
@@ -1487,7 +1488,7 @@ class search:
         for i in self.BN.p_candidates(node):
             for j in self.BN.p_candidates(node):
                 if j>i:
-                   subset=[node]+np.sort([i,j]+ancestors).tolist()
+                    subset=[node]+np.sort([i,j]+ancestors).tolist()
                     new_score=self.objfunc(self.data[:,subset],self.arity[subset])
                     delta=new_score-score
                     f delta>tmp:
@@ -2007,3 +2008,35 @@ def calculate_hamming_distances_per_node(dot_file_path_1, dot_file_path_2, outpu
     df.to_csv(output_filename, index=False)
     
     return hamming_distances
+
+def convert_bn_to_igraph(srch,tol=0,directed=True,fout=False,format="pickle"):
+
+    g = ig.Graph(directed=directed)
+
+    bn=srch.BN
+
+    g.add_vertices(bn.node_index.size)
+
+    g.vs["label"]=bn.node_names
+
+    ew=[]
+
+    for child in bn.node_index:
+
+        for parent in bn.pnodes[child]:
+
+            edge_score=srch.score_edge(child,parent)
+
+            if edge_score>tol:
+
+                g.add_edge(parent,child)
+
+                ew.append(edge_score)
+
+    g.es["weight"]=ew
+
+    if fout:
+
+        g.save(fout,format=format)
+
+    return g
