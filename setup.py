@@ -8,7 +8,7 @@ module = Extension(
 
 setup(
     name='bandyt',                   # Your module's name
-    version='0.20',                      # Initial release version
+    version='0.21',                      # Initial release version
     packages=['bandyt'],           # Automatically find packages in your project
     install_requires=[                  # Dependencies
         'numpy',
