@@ -593,7 +593,7 @@ def remove_Neighbors(contacts,N):
 
 #Main Function below
 
-def getContact2discret(tsvfile='input.tsv',neighbors=1,csv_out='trajectory.csv',nproc=28):
+def getContact2discret(tsvfile='input.tsv',neighbors=1,csv_out='pairwise_residue_contacts.csv',nproc=28):
     
     # Bulk of this function is this step which is reading tsv and converting to contact matrix
     h,tsv_data=read_tsv(tsvfile)
@@ -748,7 +748,7 @@ class dataset:
         self.data=data
         self.arity=arity
 
-    def bin_quantize(self, variables=[], bins=3, min_const_samples_bin_size=1.0/3):
+    def bin_quantize(self, variables=[], bins=3):
         """ Attempt max entropy binning quantization 
 
             variables:  a list or an array as in variables=[1,3,5]
@@ -756,6 +756,7 @@ class dataset:
             min_const_samples_bin_size: determines the min count of
             constant samples that should be given a category of its own
         """
+        min_const_samples_bin_size=1.0/bins
         self.edges=np.zeros((self.arity.size,bins+1))
         for i in variables:
             un_cnt=np.unique(self.data[:,i],return_counts=True)
@@ -810,7 +811,7 @@ class dataset:
                 self.data[inds,i]=un.index(j)
                 
 
-    def quantize_all(self, cond = 5, bins=3):
+    def quantize_all(self, cond = 5, bins=8):
         """ Discretize everything with arity>5 without thinking. 
         """
         self.requantize(np.where(self.arity<=cond)[0])
@@ -2031,54 +2032,30 @@ def convert_bn_to_igraph(srch,tol=0,directed=True,fout=False,format="pickle"):
         g.save(fout,format=format)
     return g
 
-def plot_hamming_distances(hamming_distances, value_filter, fout=False):
+def plot_hamming_distances_test(hamming_distances, value_filter=0, figsize=(25,25), fout=False):
     """Plot hamming distances in a circular graph representation, only for values greater than 0."""
-    
-    # Filter out hamming distances that are 0
     filtered_distances = {key: value for key, value in hamming_distances.items() if value > value_filter}
-    
-    # Sort the filtered data by value
     sorted_data = sorted(filtered_distances.items(), key=lambda item: item[1])
-    
-    # Initialize plot settings
     offset = np.pi / 2
     starting_radius = 0.5
     segment_width = 1
     arc_spacing = 0.1
     text_offset = 0.1
-    
-    # Get a color map for plotting
     colors = plt.cm.viridis(np.linspace(0, 1, len(filtered_distances)))
-    
-    # Create a polar plot
-    fig, ax = plt.subplots(figsize=(8, 8), subplot_kw=dict(polar=True))
+    fig, ax = plt.subplots(figsize=figsize, subplot_kw=dict(polar=True))
     
     for i, (key, num) in enumerate(sorted_data):
-        # Compute the end angle for the arc based on the value
-        end_angle = (num / sum(filtered_distances.values())) * 2 * np.pi * 5
-        end_angle = min(end_angle, 2 * np.pi)  # Ensure the angle doesn't exceed a full circle
-        
-        # Create an arc for each value
+        end_angle = (num / sum(hamming_distances.values())) * 2 * np.pi * 5
+        end_angle = min(end_angle, 2 * np.pi)
         t = np.linspace(offset, end_angle + offset, 100)
         r = np.full_like(t, starting_radius + i * (segment_width + arc_spacing))
-        
-        # Plot the outer black arc
         ax.plot(t, r, lw=segment_width * 11, color='black', solid_capstyle='butt')
-        
-        # Plot the colored arc inside
         ax.plot(t, r, lw=segment_width * 10, color=colors[i], solid_capstyle='butt')
-        
-        # Add text annotations for the values and keys
-        text_radius = r[0] + text_offset if end_angle < 2 * np.pi else r[0] - text_offset
-        ax.text(end_angle + offset, text_radius, str(num), ha='left', va='center', fontsize=9, color='black')
         ax.text(offset, r[0], key, ha='left', va='center', fontsize=9, color='black')
-    
-    # Hide axes and background
     ax.set_frame_on(False)
     ax.axes.get_yaxis().set_visible(False)
     ax.axes.get_xaxis().set_visible(False)
     
     if fout:
         plt.savefig(fout, dpi=500)
-    # Display the plot
     plt.show()
