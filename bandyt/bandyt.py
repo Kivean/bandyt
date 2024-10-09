@@ -31,7 +31,7 @@ __all__ = ['search', 'bnet', 'cext', 'dataset', 'bdm', 'bnetload', 'check_type',
            'test','upstream_sampler', 'read_input_file','getContact2discret', 'runParallel', 'datawrite', 'read_tsv', 'Residue', 
            'transformRes', 'get_unique_pair', 'get_trj_s', 'get_traj_p', 'remove_Neighbors',  'getGraphProp', 'load_graph',
            'is_valid_node', 'create_adjacency_matrix', 'calculate_hamming_distance_between_graphs', 'calculate_hamming_distances_per_node',
-           'convert_bn_to_igraph']
+           'convert_bn_to_igraph', 'plot_hamming_distances']
 
 def bnetload(structure):
     """ structure can be a csv file or and adjacency matrix """
