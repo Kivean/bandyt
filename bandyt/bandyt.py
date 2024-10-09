@@ -20,6 +20,11 @@ from functools import partial
 import multiprocessing
 import pandas as pd
 import pydot
+import igraph as ig
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
+from matplotlib.patches import Wedge
+from matplotlib.patches import Arc
 
 __all__ = ['search', 'bnet', 'cext', 'dataset', 'bdm', 'bnetload', 'check_type', 'cond_normal', 'conditional_sampl', 'continuous_sampler','conv','conv_col','conv_row','cpt',
            'downstream_sampler', 'downstream_sampler1', 'factor_indx', 'factor_str', 'joint_prob', 'loader', 'make_A', 'mdl', 'mu', 'random_adjmat', 'random_dist',
@@ -1970,7 +1975,7 @@ def create_adjacency_matrix(graph, nodes):
     return adjacency_matrix
 
 def calculate_hamming_distance_between_graphs(dot_file_path_1, dot_file_path_2):
-    """Calculate the Hamming distance between two matrices for each node."""
+    """Calculate the Hamming distance between two matrices."""
     graph1=load_graph(dot_file_path_1)
     graph2=load_graph(dot_file_path_2)
     nodes = {node.get_name().strip().strip('"') for node in graph1.get_nodes() if is_valid_node(node.get_name().strip().strip('"'))}
@@ -1984,8 +1989,8 @@ def calculate_hamming_distance_between_graphs(dot_file_path_1, dot_file_path_2):
         node_index = node_to_index[node]
         distance = np.sum(np.abs(matrix1[node_index, :] - matrix2[node_index, :]))
         hamming_distances += distance
-
-    return hamming_distances
+    print(f'Weighted Hamming distance between two graphs: {hamming_distances}')
+    #return hamming_distances
     
 def calculate_hamming_distances_per_node(dot_file_path_1, dot_file_path_2, output_filename):
     """Calculate the Hamming distance for each node between two matrices."""
@@ -2004,39 +2009,76 @@ def calculate_hamming_distances_per_node(dot_file_path_1, dot_file_path_2, outpu
         distance = np.sum(np.abs(matrix1[node_index, :] - matrix2[node_index, :]))
         hamming_distances[node] = distance
         
-    df = pd.DataFrame(list(hamming_distances.items()), columns=['Node', 'Hamming Distance'])
+    df = pd.DataFrame(list(hamming_distances.items()), columns=['Node', 'Weighted Hamming Distance'])
     df.to_csv(output_filename, index=False)
     
     return hamming_distances
 
 def convert_bn_to_igraph(srch,tol=0,directed=True,fout=False,format="pickle"):
-
     g = ig.Graph(directed=directed)
-
     bn=srch.BN
-
     g.add_vertices(bn.node_index.size)
-
     g.vs["label"]=bn.node_names
-
     ew=[]
-
     for child in bn.node_index:
-
         for parent in bn.pnodes[child]:
-
             edge_score=srch.score_edge(child,parent)
-
             if edge_score>tol:
-
                 g.add_edge(parent,child)
-
                 ew.append(edge_score)
-
     g.es["weight"]=ew
-
     if fout:
-
         g.save(fout,format=format)
-
     return g
+
+def plot_hamming_distances(hamming_distances, value_filter, fout=False):
+    """Plot hamming distances in a circular graph representation, only for values greater than 0."""
+    
+    # Filter out hamming distances that are 0
+    filtered_distances = {key: value for key, value in hamming_distances.items() if value > value_filter}
+    
+    # Sort the filtered data by value
+    sorted_data = sorted(filtered_distances.items(), key=lambda item: item[1])
+    
+    # Initialize plot settings
+    offset = np.pi / 2
+    starting_radius = 0.5
+    segment_width = 1
+    arc_spacing = 0.1
+    text_offset = 0.1
+    
+    # Get a color map for plotting
+    colors = plt.cm.viridis(np.linspace(0, 1, len(filtered_distances)))
+    
+    # Create a polar plot
+    fig, ax = plt.subplots(figsize=(8, 8), subplot_kw=dict(polar=True))
+    
+    for i, (key, num) in enumerate(sorted_data):
+        # Compute the end angle for the arc based on the value
+        end_angle = (num / sum(filtered_distances.values())) * 2 * np.pi * 5
+        end_angle = min(end_angle, 2 * np.pi)  # Ensure the angle doesn't exceed a full circle
+        
+        # Create an arc for each value
+        t = np.linspace(offset, end_angle + offset, 100)
+        r = np.full_like(t, starting_radius + i * (segment_width + arc_spacing))
+        
+        # Plot the outer black arc
+        ax.plot(t, r, lw=segment_width * 11, color='black', solid_capstyle='butt')
+        
+        # Plot the colored arc inside
+        ax.plot(t, r, lw=segment_width * 10, color=colors[i], solid_capstyle='butt')
+        
+        # Add text annotations for the values and keys
+        text_radius = r[0] + text_offset if end_angle < 2 * np.pi else r[0] - text_offset
+        ax.text(end_angle + offset, text_radius, str(num), ha='left', va='center', fontsize=9, color='black')
+        ax.text(offset, r[0], key, ha='left', va='center', fontsize=9, color='black')
+    
+    # Hide axes and background
+    ax.set_frame_on(False)
+    ax.axes.get_yaxis().set_visible(False)
+    ax.axes.get_xaxis().set_visible(False)
+    
+    if fout:
+        plt.savefig(fout, dpi=500)
+    # Display the plot
+    plt.show()

@@ -614,7 +614,7 @@ def read_input_file(f):
         discreteData=getContact2discret(f)
         dt=loader(discreteData)
     else:
-        dt=loader(filename)
+        dt=loader(f)
         if np.any(np.array([np.unique(x).size/len(x) for  x in dt.data.T])>0.95):
             dt.quantize_all(bins=8)
     return dt
