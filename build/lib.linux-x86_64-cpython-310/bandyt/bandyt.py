@@ -2032,7 +2032,7 @@ def convert_bn_to_igraph(srch,tol=0,directed=True,fout=False,format="pickle"):
         g.save(fout,format=format)
     return g
 
-def plot_hamming_distances_test(hamming_distances, value_filter=0, figsize=(25,25), fout=False):
+def plot_hamming_distances(hamming_distances, value_filter=0, figsize=(25,25), fout=False):
     """Plot hamming distances in a circular graph representation, only for values greater than 0."""
     filtered_distances = {key: value for key, value in hamming_distances.items() if value > value_filter}
     sorted_data = sorted(filtered_distances.items(), key=lambda item: item[1])
