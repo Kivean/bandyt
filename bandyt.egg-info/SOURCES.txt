@@ -4,6 +4,7 @@ setup.py
 bandyt/__init__.py
 bandyt/bandyt.py
 bandyt/ofext.cpp
+bandyt/ofext.so
 bandyt/oflib.py
 bandyt/ofunc.py
 bandyt/synthetic.py
