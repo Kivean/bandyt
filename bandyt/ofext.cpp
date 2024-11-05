@@ -1,6 +1,6 @@
 //=============================================================
-//(c) 2011 Distributed under MIT-style license. 
-//(see LICENSE.txt or visit http://opensource.org/licenses/MIT)
+//Copyright 2024 City of Hope.  
+//All rights reserved – no licenses granted by this publication.
 //=============================================================
 
 

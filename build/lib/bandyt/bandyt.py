@@ -547,7 +547,7 @@ class Residue():
                 'PHE': 'F', 'ASN': 'N', 'GLY': 'G', 'HIS': 'H', 'HSD': 'H',
                 'HID': 'H', 'HIE': 'H', 'HIP': 'H', 'LEU': 'L', 'ARG': 'R', 
                 'TRP': 'W', 'ALA': 'A', 'VAL': 'V', 'GLU': 'E', 'GLH': 'E', 
-                'TYR': 'Y', 'MET': 'M', 'ZD7': 'Z', 'NMA': 'X' }
+                'TYR': 'Y', 'MET': 'M', 'ZD7': 'Z', 'NMA': 'X', 'LIG': 'LIG' }
 
     def shRes(self,x):
         #print(self.d.keys())

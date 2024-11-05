@@ -1,6 +1,6 @@
 #//=============================================================
-#//(c) 2011 Distributed under MIT-style license. 
-#//(see LICENSE.txt or visit http://opensource.org/licenses/MIT)
+#// Copyright 2024 City of Hope.  
+#// All rights reserved – no licenses granted by this publication.
 #//=============================================================
 
 
@@ -25,6 +25,14 @@ import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 from matplotlib.patches import Wedge
 from matplotlib.patches import Arc
+
+try:
+    import oflib
+    cmdl=oflib.cext().mdl
+    cmu=oflib.cext().mu
+except OSError:
+    print("Try running make")
+    pass
 
 __all__ = ['search', 'bnet', 'cext', 'dataset', 'bdm', 'bnetload', 'check_type', 'cond_normal', 'conditional_sampl', 'continuous_sampler','conv','conv_col','conv_row','cpt',
            'downstream_sampler', 'downstream_sampler1', 'factor_indx', 'factor_str', 'joint_prob', 'loader', 'make_A', 'mdl', 'mu', 'random_adjmat', 'random_dist',
@@ -1669,7 +1677,7 @@ class search:
             # equivalence class was reached.
             if current_score<tmpscore: #MIR mod
                 print('found', current_score)
-                self.dot(filename=f'{restart}')
+                #self.dot(filename=f'{restart}')
                 tmpBN=deepcopy(self.BN)
                 tmpscore=current_score
                 if criterion:
