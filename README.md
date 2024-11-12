@@ -9,6 +9,7 @@ Tutorial on how to use BaNDyT can be found here: https://github.com/bandyt-group
 **Installing Requirements**
 
 Following Python packages are required: numpy,pandas,seaborn,matplotlib,pydot,igraph.
+Optional (recommended): for built-in graph visualization in PDF format, graphviz is required.
 We recommend using pip to install them on your local machine:
 
 ```pip install numpy
