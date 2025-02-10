@@ -1,8 +1,12 @@
 #//=============================================================
-#// Copyright 2024 City of Hope.  
-#// All rights reserved – no licenses granted by this publication.
+#// The MIT License (MIT)
+#// Copyright (c) 2011 G.Gogoshin
+#// 
+#// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: 
+#// The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+#// 
+#// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. 
 #//=============================================================
-
 
 import numpy as np
 import random
@@ -25,6 +29,8 @@ import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 from matplotlib.patches import Wedge
 from matplotlib.patches import Arc
+import itertools
+import networkx as nx
 
 try:
     import oflib
@@ -33,13 +39,6 @@ try:
 except OSError:
     print("Try running make")
     pass
-
-__all__ = ['search', 'bnet', 'cext', 'dataset', 'bdm', 'bnetload', 'check_type', 'cond_normal', 'conditional_sampl', 'continuous_sampler','conv','conv_col','conv_row','cpt',
-           'downstream_sampler', 'downstream_sampler1', 'factor_indx', 'factor_str', 'joint_prob', 'loader', 'make_A', 'mdl', 'mu', 'random_adjmat', 'random_dist',
-           'test','upstream_sampler', 'read_input_file','getContact2discret', 'runParallel', 'datawrite', 'read_tsv', 'Residue', 
-           'transformRes', 'get_unique_pair', 'get_trj_s', 'get_traj_p', 'remove_Neighbors',  'getGraphProp', 'load_graph',
-           'is_valid_node', 'create_adjacency_matrix', 'calculate_hamming_distance_between_graphs', 'calculate_hamming_distances_per_node',
-           'convert_bn_to_igraph', 'plot_hamming_distances']
 
 def bnetload(structure):
     """ structure can be a csv file or and adjacency matrix """
@@ -516,122 +515,6 @@ class bnet:
             csvwr.writerow([name]+self.pnodes[i])
         fout.close()
 
-def runParallel(foo,iter,ncore):
-    pool=multiprocessing.Pool(processes=ncore)
-    try:
-        out=(pool.map_async( foo,iter )).get()  
-    except KeyboardInterrupt:
-        print ("Caught KeyboardInterrupt, terminating workers")
-        pool.terminate()
-        pool.join()
-    else:
-        #print ("Quitting normally core used ",ncore)
-        pool.close()
-        pool.join()
-    try:
-        return out
-    except Exception:
-        return out
-
-def datawrite(output,data,labels=None):
-    with open(output, 'w', newline='') as csvfile:
-        csv_writer = csv.writer(csvfile)
-        if labels is not None:
-            csv_writer.writerow(labels)
-        for row in data:
-            csv_writer.writerow(row)
-
-def read_tsv(fin):
-    f=open(fin)
-    f.readline()
-    h=f.readline().strip().split('\t')
-    data=np.array([r.strip().split('\t') for r in f.readlines()])
-    return h,data 
-
-class Residue():
-    def __init__(self):
-        self.d={'CYS': 'C', 'CYX': 'C', 'ASP': 'D', 'ASH': 'D', 'SER': 'S', 
-                'GLN': 'Q', 'LYS': 'K', 'ILE': 'I', 'PRO': 'P', 'THR': 'T', 
-                'PHE': 'F', 'ASN': 'N', 'GLY': 'G', 'HIS': 'H', 'HSD': 'H',
-                'HID': 'H', 'HIE': 'H', 'HIP': 'H', 'LEU': 'L', 'ARG': 'R', 
-                'TRP': 'W', 'ALA': 'A', 'VAL': 'V', 'GLU': 'E', 'GLH': 'E', 
-                'TYR': 'Y', 'MET': 'M', 'ZD7': 'Z', 'NMA': 'X', 'LIG': 'LIG' }
-
-    def shRes(self,x):
-        #print(self.d.keys())
-        if len(x) % 3 != 0: 
-            raise ValueError('Input length should be a multiple of three')
-        y = ''
-        for i in range(len(x) // 3):
-            y += self.d[x[3 * i : 3 * i + 3]]
-        return y
-
-
-def transformRes(pair):
-    R=Residue()
-    res1=R.shRes(pair.split('_')[0][:3])+pair.split('_')[0][3:]
-    res2=R.shRes(pair.split('_')[1][:3])+pair.split('_')[1][3:]
-    return res1+'_'+res2
-
-def get_unique_pair(data):
-    P=np.array([a.split(':')[1:3][0]+a.split(':')[1:3][1][:]+'_'+b.split(':')[1:3][0]+b.split(':')[1:3][1][:] for a,b in data[:,2:]])
-    Pt=np.array([transformRes(p) for p in P])
-    u,pair_indx=np.unique(Pt,return_inverse=True)
-    return Pt,u,pair_indx
-
-def get_trj_s(pair_indx,T,ui):
-    tmax=T[-1]
-    traj=np.zeros(tmax+1)
-    traj[np.unique(T[pair_indx==ui])]=1
-    return traj
-
-def get_traj_p(T,pair_indx,nproc): #u also
-    tmax=T[-1]
-    u=np.unique(pair_indx)
-    traj=np.zeros((tmax+1,u.size))
-    make_v=partial(get_trj_s,pair_indx,T)
-    trj=runParallel(make_v,u,nproc)
-    return trj
-
-def remove_Neighbors(contacts,N):
-    iplus=np.array([i for i,p in enumerate(contacts) if int(p.split('_')[0][1:])+N != int(p.split('_')[1][1:])])
-    imin=np.array([i for i,p in enumerate(contacts) if int(p.split('_')[0][1:])-N != int(p.split('_')[1][1:])])
-    return np.intersect1d(iplus,imin)
-
-
-#Main Function below
-
-def getContact2discret(tsvfile='input.tsv',neighbors=1,csv_out='pairwise_residue_contacts.csv',nproc=28):
-    
-    # Bulk of this function is this step which is reading tsv and converting to contact matrix
-    h,tsv_data=read_tsv(tsvfile)
-    pair,unqpair,pair_indx=get_unique_pair(tsv_data)
-    T=tsv_data[:,0].astype(int)
-    traj=np.array(get_traj_p(T,pair_indx,nproc))
-
-    # Remove neighbors (default is 1)
-    I=remove_Neighbors(unqpair,neighbors)
-    variables=unqpair[I]
-    data=traj[I].T.astype(int)
-   
-    # If csv file given then save to csv file (Default is to save to trajectory.csv, Set csv_out to None to skip) 
-    if csv_out is not None:
-        datawrite(csv_out,data,labels=variables)
-        return np.vstack((variables,data)) 
-    
-    # Return dataset with first row as variable names then trajectory data with shape (frames,variables)
-    return np.vstack((variables,data))
-
-def read_input_file(f):
-    if f[-3:]=='tsv':
-        discreteData=getContact2discret(f)
-        dt=loader(discreteData)
-    else:
-        dt=loader(f)
-        if np.any(np.array([np.unique(x).size/len(x) for  x in dt.data.T])>0.95):
-            dt.quantize_all(bins=8)
-    return dt
-
 def loader(data,sep=',',skip_header=0, rowskip=[], colskip=[], axis=1, names=1, fromstring=0):
     """ Loads a data and returns a dataset instance.
         
@@ -744,87 +627,151 @@ def conv(val):
     except ValueError:
         print ('Data could not be converted: %s' %val)
         return val    
-    
-
-
 
 class dataset:
     """ Basic methods for preprocessing data """
 
-    def __init__(self,variables,data,arity):
-        self.variables=variables
-        self.data=data
-        self.arity=arity
+    def __init__(self, variables, data, arity):
+        self.variables = variables
+        self.data = data
+        self.arity = arity
 
     def bin_quantize(self, variables=[], bins=3):
-        """ Attempt max entropy binning quantization 
-
-            variables:  a list or an array as in variables=[1,3,5]
-            bins: the number of categories in the quantization
-            min_const_samples_bin_size: determines the min count of
-            constant samples that should be given a category of its own
-        """
-        min_const_samples_bin_size=1.0/bins
-        self.edges=np.zeros((self.arity.size,bins+1))
+        """ Attempt max entropy binning quantization """
+        min_const_samples_bin_size = 1.0 / bins
+        self.edges = np.zeros((self.arity.size, bins + 1))
         for i in variables:
-            un_cnt=np.unique(self.data[:,i],return_counts=True)
-            constvals=un_cnt[0][un_cnt[1]>self.data.shape[0]*min_const_samples_bin_size]
-            mask=np.ones(self.data.shape[0],dtype=bool)
-            cv_edges=[]
-            if constvals.size>0:
-                for j,cv in enumerate(constvals):
-                    mask*=(self.data[:,i]!=cv)
-                    cv_edges+=[np.min(self.data[self.data[:,i]==cv,i])]
-                    self.data[self.data[:,i]==cv,i]=j
+            un_cnt = np.unique(self.data[:, i], return_counts=True)
+            constvals = un_cnt[0][un_cnt[1] > self.data.shape[0] * min_const_samples_bin_size]
+            mask = np.ones(self.data.shape[0], dtype=bool)
+            cv_edges = []
+            if constvals.size > 0:
+                for j, cv in enumerate(constvals):
+                    mask *= (self.data[:, i] != cv)
+                    cv_edges += [np.min(self.data[self.data[:, i] == cv, i])]
+                    self.data[self.data[:, i] == cv, i] = j
 
-            size=np.sum(mask)/(bins-constvals.size)
-            sorted_i=np.argsort(self.data[mask,i])
-            edges=[ self.data[mask,i][sorted_i[int(size*num)-1]] \
-                for num in range(1,bins-constvals.size) ]
-            #print(edges,constvals.size)
-            self.edges[i]=cv_edges+[self.data[mask,i][sorted_i[0]]]+edges+[self.data[mask,i][sorted_i[-1]]]
-            self.data[mask,i]=np.searchsorted(edges,self.data[mask,i])+constvals.size
-            arity=len(edges)+1+constvals.size
-            if arity==np.unique(self.data[:,i]).size : self.arity[i] = arity
-            else : self.arity[i] = -1
+            size = np.sum(mask) / (bins - constvals.size)
+            sorted_i = np.argsort(self.data[mask, i])
+            edges = [self.data[mask, i][sorted_i[int(size * num) - 1]]
+                     for num in range(1, bins - constvals.size)]
+            self.edges[i] = cv_edges + [self.data[mask, i][sorted_i[0]]] + edges + \
+                            [self.data[mask, i][sorted_i[-1]]]
+            self.data[mask, i] = np.searchsorted(edges, self.data[mask, i]) + constvals.size
+            arity = len(edges) + 1 + constvals.size
+            if arity == np.unique(self.data[:, i]).size:
+                self.arity[i] = arity
+            else:
+                self.arity[i] = -1
 
-
-    def range_quantize(self,variables=[],bins=3):
-        """ Uniform range quantization
-            
-            variables: list of indecies of nodes to quantize
-            bins: the number of categories in the quantization
-        """
-        self.edges=np.zeros((self.arity.size,bins-1))
+    def range_quantize(self, variables=[], bins=3):
+        """ Uniform range quantization """
+        self.edges = np.zeros((self.arity.size, bins - 1))
         for i in variables:
-            edges=np.linspace(min(self.data[:,i]),max(self.data[:,i]),bins+1)[1:-1]
+            edges = np.linspace(min(self.data[:, i]), max(self.data[:, i]), bins + 1)[1:-1]
+            self.edges[i] = np.unique(edges)
+            self.data[:, i] = np.searchsorted(self.edges[i], self.data[:, i])
+            self.arity[i] = np.unique(self.data[:, i]).size
 
-            #print(edges)
-            self.edges[i]=np.unique(edges)
-            self.data[:,i]=np.searchsorted(self.edges[i],self.data[:,i])
-            self.arity[i]=np.unique(self.data[:,i]).size
-
-        
-    def requantize(self,variables=[]):
-        """ Replaces the sample values with their index,
-            useful if the data has inconsistencies.
-
-            variables: list of indecies of troublesome nodes
-        """
-
+    def requantize(self, variables=[]):
+        """ Replaces the sample values with their index """
         for i in variables:
-            un=np.unique(self.data[:,i]).tolist()
+            un = np.unique(self.data[:, i]).tolist()
             for j in un:
-                inds=np.where(self.data[:,i]==j)[0]
-                self.data[inds,i]=un.index(j)
-                
+                inds = np.where(self.data[:, i] == j)[0]
+                self.data[inds, i] = un.index(j)
 
-    def quantize_all(self, cond = 5, bins=8):
-        """ Discretize everything with arity>5 without thinking. 
+    def quantize_all(self, cond=5, bins=8):
+        """ Discretize everything with arity > cond """
+        self.requantize(np.where(self.arity <= cond)[0])
+        self.bin_quantize(np.where(self.arity > cond)[0], bins)
+        self.data = self.data.astype(int)
+
+    def runParallel(self, foo, iter, ncore):
+        pool = multiprocessing.Pool(processes=ncore)
+        try:
+            out = (pool.map_async(foo, iter)).get()
+        except KeyboardInterrupt:
+            print("Caught KeyboardInterrupt, terminating workers")
+            pool.terminate()
+            pool.join()
+        else:
+            pool.close()
+            pool.join()
+        try:
+            return out
+        except Exception:
+            return out
+
+    def encode(self, c):
+        try:
+            b = np.ones(c.shape[1], dtype=int)
+        except Exception:
+            c = np.column_stack(c)
+            b = np.ones(c.shape[1], dtype=int)
+        b[:-1] = np.cumprod((c[:, 1:].max(0) + 1)[::-1])[::-1]
+        return np.sum(b * c, 1)
+
+    def H(self, i):
+        """Entropy of labels"""
+        p = np.unique(i, return_counts=True)[1] / i.size
+        return -np.sum(p * np.log2(p))
+
+    def joinH(self, i):
+        pair = np.column_stack((i))
+        en = self.encode(pair)
+        p = np.unique(en, return_counts=True)[1] / len(en)
+        return -np.sum(p * np.log2(p))
+
+    def mi_p(self, A):
+        X, Y = A
+        return self.H(X) + self.H(Y) - self.joinH((X, Y))
+
+    def getMImatrix(self, numproc):
+        traj = self.data.T  # Assuming trajectory data is stored in self.data
+        MI = self.runParallel(self.mi_p, itertools.combinations(traj, 2), numproc)
+        D = np.zeros((traj.shape[0], traj.shape[0]))
+        D[np.triu_indices_from(D, 1)] = MI
+        return D + D.T
+
+    def getContacts_aboveMIth(self, MImatrix=None, th=0.005, nproc=10, filename="contacts_MI_above_threshold.csv"):
         """
-        self.requantize(np.where(self.arity<=cond)[0])
-        self.bin_quantize(np.where(self.arity>cond)[0],bins)
-        self.data=self.data.astype(int)
+        Filters data and variables based on the MI threshold.
+    
+        Updates:
+            - self.data: Keeps only the rows/columns where MI values are above the threshold.
+            - self.variables: Keeps only the corresponding variable names.
+    
+        Args:
+            MImatrix (np.ndarray): Precomputed Mutual Information matrix. If None, it is computed.
+            th (float): Threshold for filtering mutual information values.
+            nproc (int): Number of processors to use for MI computation if MImatrix is None.
+            filename (str): The name of the CSV file to save the updated dataset.
+        """
+        # Compute MImatrix if not provided
+        if MImatrix is None:
+            MImatrix = self.getMImatrix(nproc)
+    
+        # Identify rows/columns to keep
+        indx_to_keep = ~np.all(MImatrix < th, axis=1)
+    
+        # Filter self.data and self.variables
+        self.data = self.data[:, indx_to_keep]  # Filter columns of data
+        self.variables = np.array(self.variables)[indx_to_keep].tolist()  # Update variable names
+        self.arity = self.arity[indx_to_keep]  # Update arity
+    
+        # Update self.data with integer values if needed for consistency
+        self.data = self.data.astype(int)
+        with open(filename, "w") as f:
+            # Write header
+            f.write(",".join(self.variables) + "\n")
+            # Write data
+            np.savetxt(f, self.data, delimiter=",", fmt='%d')
+        
+        # Ensure data is integer-based for consistency
+        self.data = self.data.astype(int)
+
+
         
 class cext:
     def __init__(self):
@@ -1279,23 +1226,6 @@ def test(arity=np.array([3]*8), samples=10000, alpha=0):
     #print("Try running make")
     #pass
 
-def getGraphProp(filename, fileout):
-    g = pd.read_pickle(filename)
-    name=g.vs["label"]
-    weighted_degree=g.strength(weights=g.es["weight"])
-    degree=g.degree()
-    percentiles = np.percentile(weighted_degree, np.arange(0, 101, 1))  # Get percentiles from 0 to 100
-    percentile_ranks = np.digitize(weighted_degree, percentiles, right=True)
-    graph_properties=['Degree', 'Weighted Degree', 'WD Percentile Rank']
-    graph_properties_values = [degree,weighted_degree,percentile_ranks]
-    for prop_name, prop_values in zip(graph_properties, graph_properties_values):
-        g.vs[prop_name] = prop_values
-    g.write_graphml(f'{fileout}.graphml')
-    file=open(f'{fileout}.csv', 'w')
-    file.write("Node name,Degree,Weighted Degree,WD Percentile Rank\n")
-    [print("%s,%f,%f,%f"%(a,x,y,z), file=file) for a,x,y,z in zip(name,degree,weighted_degree,percentile_ranks )] 
-    file.close()
-    
 class search:
     """ Methods for BN structure learning """
 
@@ -1827,12 +1757,6 @@ class search:
             print(output)
         if return_Nijk: return Nijk
 
-    
-        
-        
-
-
-
 
     def dot(self, filename = "rendering", \
                     path = "", \
@@ -1952,6 +1876,133 @@ class search:
 
         if bool(return_scores): 
             return np.hstack([edge_scores.reshape((edge_scores.size,1)).astype(object),edges])
+#//=============================================================
+#// End of the MIT license.
+#//=============================================================
+
+
+
+#//=============================================================
+#// Copyright 2024 City of Hope.  
+#// All rights reserved – no licenses granted by this publication.
+#//=============================================================
+
+
+def runParallel(foo,iter,ncore):
+    pool=multiprocessing.Pool(processes=ncore)
+    try:
+        out=(pool.map_async( foo,iter )).get()  
+    except KeyboardInterrupt:
+        print ("Caught KeyboardInterrupt, terminating workers")
+        pool.terminate()
+        pool.join()
+    else:
+        #print ("Quitting normally core used ",ncore)
+        pool.close()
+        pool.join()
+    try:
+        return out
+    except Exception:
+        return out
+
+def datawrite(output,data,labels=None):
+    with open(output, 'w', newline='') as csvfile:
+        csv_writer = csv.writer(csvfile)
+        if labels is not None:
+            csv_writer.writerow(labels)
+        for row in data:
+            csv_writer.writerow(row)
+
+def read_tsv(fin):
+    f=open(fin)
+    f.readline()
+    h=f.readline().strip().split('\t')
+    data=np.array([r.strip().split('\t') for r in f.readlines()])
+    return h,data 
+
+class Residue():
+    def __init__(self):
+        self.d={'CYS': 'C', 'CYX': 'C', 'ASP': 'D', 'ASH': 'D', 'SER': 'S', 
+                'GLN': 'Q', 'LYS': 'K', 'ILE': 'I', 'PRO': 'P', 'THR': 'T', 
+                'PHE': 'F', 'ASN': 'N', 'GLY': 'G', 'HIS': 'H', 'HSD': 'H',
+                'HID': 'H', 'HIE': 'H', 'HIP': 'H', 'LEU': 'L', 'ARG': 'R', 
+                'TRP': 'W', 'ALA': 'A', 'VAL': 'V', 'GLU': 'E', 'GLH': 'E', 
+                'TYR': 'Y', 'MET': 'M', 'ZD7': 'Z', 'NMA': 'X', 'LIG': 'LIG' }
+
+    def shRes(self,x):
+        #print(self.d.keys())
+        if len(x) % 3 != 0: 
+            raise ValueError('Input length should be a multiple of three')
+        y = ''
+        for i in range(len(x) // 3):
+            y += self.d[x[3 * i : 3 * i + 3]]
+        return y
+
+
+def transformRes(pair):
+    R=Residue()
+    res1=R.shRes(pair.split('_')[0][:3])+pair.split('_')[0][3:]
+    res2=R.shRes(pair.split('_')[1][:3])+pair.split('_')[1][3:]
+    return res1+'_'+res2
+
+def get_unique_pair(data):
+    P=np.array([a.split(':')[1:3][0]+a.split(':')[1:3][1][:]+'_'+b.split(':')[1:3][0]+b.split(':')[1:3][1][:] for a,b in data[:,2:]])
+    Pt=np.array([transformRes(p) for p in P])
+    u,pair_indx=np.unique(Pt,return_inverse=True)
+    return Pt,u,pair_indx
+
+def get_trj_s(pair_indx,T,ui):
+    tmax=T[-1]
+    traj=np.zeros(tmax+1)
+    traj[np.unique(T[pair_indx==ui])]=1
+    return traj
+
+def get_traj_p(T,pair_indx,nproc): #u also
+    tmax=T[-1]
+    u=np.unique(pair_indx)
+    traj=np.zeros((tmax+1,u.size))
+    make_v=partial(get_trj_s,pair_indx,T)
+    trj=runParallel(make_v,u,nproc)
+    return trj
+
+def remove_Neighbors(contacts,N):
+    iplus=np.array([i for i,p in enumerate(contacts) if int(p.split('_')[0][1:])+N != int(p.split('_')[1][1:])])
+    imin=np.array([i for i,p in enumerate(contacts) if int(p.split('_')[0][1:])-N != int(p.split('_')[1][1:])])
+    return np.intersect1d(iplus,imin)
+
+
+#Main Function below
+
+def getContact2discret(tsvfile='input.tsv',neighbors=1,csv_out='pairwise_residue_contacts.csv',nproc=28):
+    
+    # Bulk of this function is this step which is reading tsv and converting to contact matrix
+    h,tsv_data=read_tsv(tsvfile)
+    pair,unqpair,pair_indx=get_unique_pair(tsv_data)
+    T=tsv_data[:,0].astype(int)
+    traj=np.array(get_traj_p(T,pair_indx,nproc))
+
+    # Remove neighbors (default is 1)
+    I=remove_Neighbors(unqpair,neighbors)
+    variables=unqpair[I]
+    data=traj[I].T.astype(int)
+   
+    # If csv file given then save to csv file (Default is to save to trajectory.csv, Set csv_out to None to skip) 
+    if csv_out is not None:
+        datawrite(csv_out,data,labels=variables)
+        return np.vstack((variables,data)) 
+    
+    # Return dataset with first row as variable names then trajectory data with shape (frames,variables)
+    return np.vstack((variables,data))
+
+def read_input_file(f):
+    if f[-3:]=='tsv':
+        discreteData=getContact2discret(f)
+        dt=loader(discreteData)
+    else:
+        dt=loader(f)
+        if np.any(np.array([np.unique(x).size/len(x) for  x in dt.data.T])>0.95):
+            dt.quantize_all(bins=8)
+    return dt
 
 def load_graph(dot_file_path):
     """Load a graph from a DOT file."""
@@ -2067,3 +2118,56 @@ def plot_hamming_distances(hamming_distances, value_filter=0, figsize=(25,25), f
     if fout:
         plt.savefig(fout, dpi=500)
     plt.show()
+
+def updateGraph_properties(graphml_file, csv_file, node_column, output_name):
+    """
+    Updates a GraphML graph with node properties from a CSV file.
+
+ 
+
+    Args:
+        graphml_file (str): Path to the input GraphML file.
+        csv_file (str): Path to the CSV file containing node properties.
+        node_column (str): Column name in the CSV that matches node labels in the graph.
+        output_graphml (str): Name for the updated GraphML file.
+        output_csv (str): Name for the output CSV file with all node properties.
+    """
+    G = nx.read_graphml(graphml_file)
+    df = pd.read_csv(csv_file)
+    csv_data = df.set_index(node_column).to_dict(orient='index')
+    for node, node_data in G.nodes(data=True):
+        node_label = node_data.get('label')
+        if node_label in csv_data:
+            for key, value in csv_data[node_label].items():
+                G.nodes[node][key] = value
+    nx.write_graphml(G, f'{output_name}.graphml')
+    updated_node_data = []
+    for node, node_data in G.nodes(data=True):
+        node_data['node_id'] = node
+        updated_node_data.append(node_data) 
+
+    updated_df = pd.DataFrame(updated_node_data)
+    updated_df.to_csv(f'{output_name}.csv', index=False)
+
+    print(f"Updated graph saved to f'{output_name}'.graphml")
+    print(f"Node properties saved to f'{output_name}'.csv")
+
+def getGraphProp(filename, fileout):
+    g = pd.read_pickle(filename)
+    name=g.vs["label"]
+    weighted_degree=g.strength(weights=g.es["weight"])
+    degree=g.degree()
+    betweenness=g.betweenness()
+    weighted_betweenness=g.betweenness(weights=g.es["weight"])
+    closeness=g.closeness()
+    percentiles = np.percentile(weighted_degree, np.arange(0, 101, 1))  # Get percentiles from 0 to 100
+    percentile_ranks = np.digitize(weighted_degree, percentiles, right=True)
+    graph_properties=['Degree', 'Weighted Degree', 'WD Percentile Rank' , 'Betweenness', 'Weighted Betweenness', 'Closeness']
+    graph_properties_values = [degree,weighted_degree,percentile_ranks, betweenness, weighted_betweenness, closeness]
+    for prop_name, prop_values in zip(graph_properties, graph_properties_values):
+        g.vs[prop_name] = prop_values
+    g.write_graphml(f'{fileout}.graphml')
+    file=open(f'{fileout}.csv', 'w')
+    file.write("Node name,Degree,Weighted Degree,WD Percentile Rank,Betweenness,Weighted Betweenness,Closeness\n")
+    [print("%s,%f,%f,%f,%f,%f,%f"%(a,x,y,z,b,c,d), file=file) for a,x,y,z,b,c,d in zip(name,degree,weighted_degree,percentile_ranks,betweenness, weighted_betweenness, closeness)] 
+    file.close()

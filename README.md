@@ -2,13 +2,13 @@
 
 BaNDyT (Bayesian Network analisis of molecular Dynamic simulation Trajectories): software package that implements the Bayesian Network Modeling specifically attuned to the MD simulation trajectories data.
 
-This package was prepared and released along with the publication: <insert link to publication here>
+This package was prepared and released along with the publication: [BaNDyT: Bayesian Network Modeling of Molecular Dynamics Trajectories (Journal of Chemical Information and Modeling)]( https://pubs.acs.org/doi/full/10.1021/acs.jcim.4c01981)
 
-Tutorial on how to use BaNDyT can be found here: https://github.com/bandyt-group/bandyt-tutorial
+Tutorial on how to use BaNDyT can be found here: [BaNDyT tutorial](https://github.com/bandyt-group/bandyt-tutorial)
 
 **Installing Requirements**
 
-Following Python packages are required: numpy,pandas,seaborn,matplotlib,pydot,igraph.
+Following Python packages are required: numpy,pandas,seaborn,matplotlib,pydot,igraph, networkx.
 We recommend using pip to install them on your local machine:
 
 ```pip install numpy
@@ -17,6 +17,7 @@ pip install seaborn
 pip install matplotlib
 pip install pydot
 pip install igraph
+pip install networkx
 ```
 
 Optional (recommended): for built-in graph visualization in PDF format, graphviz is required.
